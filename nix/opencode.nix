@@ -32,6 +32,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     substituteInPlace package.json \
       --replace-fail '"packageManager": "bun@1.3.10"' '"packageManager": "bun@${bun.version}"'
 
+    # Create stub TEAM_MEMBERS required by packages/script/src/index.ts at build time
+    mkdir -p .github
+    touch .github/TEAM_MEMBERS
+
     runHook postPatch
   '';
 
