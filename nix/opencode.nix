@@ -25,6 +25,16 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     writableTmpDirAsHomeHook
   ];
 
+  patchPhase = ''
+    runHook prePatch
+
+    # Align packageManager version with the bun provided by Nix to avoid semver check failure
+    substituteInPlace package.json \
+      --replace-fail '"packageManager": "bun@1.3.10"' '"packageManager": "bun@${bun.version}"'
+
+    runHook postPatch
+  '';
+
   configurePhase = ''
     runHook preConfigure
 
