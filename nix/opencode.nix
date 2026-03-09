@@ -25,20 +25,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     writableTmpDirAsHomeHook
   ];
 
-  patchPhase = ''
-    runHook prePatch
-
-    # Align packageManager version with the bun provided by Nix to avoid semver check failure
-    substituteInPlace package.json \
-      --replace-fail '"packageManager": "bun@1.3.10"' '"packageManager": "bun@${bun.version}"'
-
-    # Create stub TEAM_MEMBERS required by packages/script/src/index.ts at build time
-    mkdir -p .github
-    touch .github/TEAM_MEMBERS
-
-    runHook postPatch
-  '';
-
   configurePhase = ''
     runHook preConfigure
 
@@ -94,7 +80,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     writableTmpDirAsHomeHook
   ];
   doInstallCheck = true;
-  versionCheckKeepEnvironment = [ "HOME" "OPENCODE_DISABLE_MODELS_FETCH" ];
+  versionCheckKeepEnvironment = [
+    "HOME"
+    "OPENCODE_DISABLE_MODELS_FETCH"
+  ];
   versionCheckProgramArg = "--version";
 
   passthru = {

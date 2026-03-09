@@ -39,7 +39,7 @@
   [data-slot="basic-tool-tool-info-main"] {
     flex: 0 1 auto;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
     min-width: 0;
     overflow: clip;
