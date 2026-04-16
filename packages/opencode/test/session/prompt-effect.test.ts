@@ -3,26 +3,26 @@ import { FetchHttpClient } from "effect/unstable/http"
 import { expect } from "bun:test"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import path from "path"
-import z from "zod"
 import { Agent as AgentSvc } from "../../src/agent/agent"
 import { Bus } from "../../src/bus"
 import { Command } from "../../src/command"
-import { Config } from "../../src/config/config"
+import { Config } from "../../src/config"
 import { FileTime } from "../../src/file/time"
 import { LSP } from "../../src/lsp"
 import { MCP } from "../../src/mcp"
 import { Permission } from "../../src/permission"
 import { Plugin } from "../../src/plugin"
-import { Provider as ProviderSvc } from "../../src/provider/provider"
-import type { Provider } from "../../src/provider/provider"
+import { Provider as ProviderSvc } from "../../src/provider"
+import { Env } from "../../src/env"
 import { ModelID, ProviderID } from "../../src/provider/schema"
 import { Question } from "../../src/question"
 import { Todo } from "../../src/session/todo"
 import { Session } from "../../src/session"
 import { LLM } from "../../src/session/llm"
 import { MessageV2 } from "../../src/session/message-v2"
-import { AppFileSystem } from "../../src/filesystem"
+import { AppFileSystem } from "@opencode-ai/shared/filesystem"
 import { SessionCompaction } from "../../src/session/compaction"
+import { SessionSummary } from "../../src/session/summary"
 import { Instruction } from "../../src/session/instruction"
 import { SessionProcessor } from "../../src/session/processor"
 import { SessionPrompt } from "../../src/session/prompt"
@@ -31,6 +31,7 @@ import { SessionRunState } from "../../src/session/run-state"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { Skill } from "../../src/skill"
+import { SystemPrompt } from "../../src/session/system"
 import { Shell } from "../../src/shell/shell"
 import { Snapshot } from "../../src/snapshot"
 import { ToolRegistry } from "../../src/tool/registry"
@@ -44,6 +45,15 @@ import { testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 
 Log.init({ print: false })
+
+const summary = Layer.succeed(
+  SessionSummary.Service,
+  SessionSummary.Service.of({
+    summarize: () => Effect.void,
+    diff: () => Effect.succeed([]),
+    computeDiff: () => Effect.succeed([]),
+  }),
+)
 
 const ref = {
   providerID: ProviderID.make("test"),
@@ -144,7 +154,7 @@ const filetime = Layer.succeed(
     read: () => Effect.void,
     get: () => Effect.succeed(undefined),
     assert: () => Effect.void,
-    withLock: (_filepath, fn) => Effect.promise(fn),
+    withLock: (_filepath, fn) => fn(),
   }),
 )
 
@@ -156,6 +166,7 @@ function makeHttp() {
     Session.defaultLayer,
     Snapshot.defaultLayer,
     LLM.defaultLayer,
+    Env.defaultLayer,
     AgentSvc.defaultLayer,
     Command.defaultLayer,
     Permission.defaultLayer,
@@ -181,28 +192,30 @@ function makeHttp() {
     Layer.provideMerge(deps),
   )
   const trunc = Truncate.layer.pipe(Layer.provideMerge(deps))
-  const proc = SessionProcessor.layer.pipe(Layer.provideMerge(deps))
+  const proc = SessionProcessor.layer.pipe(Layer.provide(summary), Layer.provideMerge(deps))
   const compact = SessionCompaction.layer.pipe(Layer.provideMerge(proc), Layer.provideMerge(deps))
   return Layer.mergeAll(
     TestLLMServer.layer,
     SessionPrompt.layer.pipe(
       Layer.provide(SessionRevert.defaultLayer),
+      Layer.provide(summary),
       Layer.provideMerge(run),
       Layer.provideMerge(compact),
       Layer.provideMerge(proc),
       Layer.provideMerge(registry),
       Layer.provideMerge(trunc),
       Layer.provide(Instruction.defaultLayer),
+      Layer.provide(SystemPrompt.defaultLayer),
       Layer.provideMerge(deps),
     ),
-  )
+  ).pipe(Layer.provide(summary))
 }
 
 const it = testEffect(makeHttp())
 const unix = process.platform !== "win32" ? it.live : it.live.skip
 
 // Config that registers a custom "test" provider with a "test-model" model
-// so Provider.getModel("test", "test-model") succeeds inside the loop.
+// so provider model lookup succeeds inside the loop.
 const cfg = {
   provider: {
     test: {
@@ -369,25 +382,23 @@ it.live("loop calls LLM and returns assistant message", () =>
 it.live("static loop returns assistant text through local provider", () =>
   provideTmpdirServer(
     Effect.fnUntraced(function* ({ llm }) {
-      const session = yield* Effect.promise(() =>
-        Session.create({
-          title: "Prompt provider",
-          permission: [{ permission: "*", pattern: "*", action: "allow" }],
-        }),
-      )
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const session = yield* sessions.create({
+        title: "Prompt provider",
+        permission: [{ permission: "*", pattern: "*", action: "allow" }],
+      })
 
-      yield* Effect.promise(() =>
-        SessionPrompt.prompt({
-          sessionID: session.id,
-          agent: "build",
-          noReply: true,
-          parts: [{ type: "text", text: "hello" }],
-        }),
-      )
+      yield* prompt.prompt({
+        sessionID: session.id,
+        agent: "build",
+        noReply: true,
+        parts: [{ type: "text", text: "hello" }],
+      })
 
       yield* llm.text("world")
 
-      const result = yield* Effect.promise(() => SessionPrompt.loop({ sessionID: session.id }))
+      const result = yield* prompt.loop({ sessionID: session.id })
       expect(result.info.role).toBe("assistant")
       expect(result.parts.some((part) => part.type === "text" && part.text === "world")).toBe(true)
       expect(yield* llm.hits).toHaveLength(1)
@@ -400,40 +411,36 @@ it.live("static loop returns assistant text through local provider", () =>
 it.live("static loop consumes queued replies across turns", () =>
   provideTmpdirServer(
     Effect.fnUntraced(function* ({ llm }) {
-      const session = yield* Effect.promise(() =>
-        Session.create({
-          title: "Prompt provider turns",
-          permission: [{ permission: "*", pattern: "*", action: "allow" }],
-        }),
-      )
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const session = yield* sessions.create({
+        title: "Prompt provider turns",
+        permission: [{ permission: "*", pattern: "*", action: "allow" }],
+      })
 
-      yield* Effect.promise(() =>
-        SessionPrompt.prompt({
-          sessionID: session.id,
-          agent: "build",
-          noReply: true,
-          parts: [{ type: "text", text: "hello one" }],
-        }),
-      )
+      yield* prompt.prompt({
+        sessionID: session.id,
+        agent: "build",
+        noReply: true,
+        parts: [{ type: "text", text: "hello one" }],
+      })
 
       yield* llm.text("world one")
 
-      const first = yield* Effect.promise(() => SessionPrompt.loop({ sessionID: session.id }))
+      const first = yield* prompt.loop({ sessionID: session.id })
       expect(first.info.role).toBe("assistant")
       expect(first.parts.some((part) => part.type === "text" && part.text === "world one")).toBe(true)
 
-      yield* Effect.promise(() =>
-        SessionPrompt.prompt({
-          sessionID: session.id,
-          agent: "build",
-          noReply: true,
-          parts: [{ type: "text", text: "hello two" }],
-        }),
-      )
+      yield* prompt.prompt({
+        sessionID: session.id,
+        agent: "build",
+        noReply: true,
+        parts: [{ type: "text", text: "hello two" }],
+      })
 
       yield* llm.text("world two")
 
-      const second = yield* Effect.promise(() => SessionPrompt.loop({ sessionID: session.id }))
+      const second = yield* prompt.loop({ sessionID: session.id })
       expect(second.info.role).toBe("assistant")
       expect(second.parts.some((part) => part.type === "text" && part.text === "world two")).toBe(true)
 
@@ -470,6 +477,48 @@ it.live("loop continues when finish is tool-calls", () =>
         expect(result.info.finish).toBe("stop")
       }
     }),
+    { git: true, config: providerCfg },
+  ),
+)
+
+it.live("glob tool keeps instance context during prompt runs", () =>
+  provideTmpdirServer(
+    ({ dir, llm }) =>
+      Effect.gen(function* () {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const session = yield* sessions.create({
+          title: "Glob context",
+          permission: [{ permission: "*", pattern: "*", action: "allow" }],
+        })
+        const file = path.join(dir, "probe.txt")
+        yield* Effect.promise(() => Bun.write(file, "probe"))
+
+        yield* prompt.prompt({
+          sessionID: session.id,
+          agent: "build",
+          noReply: true,
+          parts: [{ type: "text", text: "find text files" }],
+        })
+        yield* llm.tool("glob", { pattern: "**/*.txt" })
+        yield* llm.text("done")
+
+        const result = yield* prompt.loop({ sessionID: session.id })
+        expect(result.info.role).toBe("assistant")
+
+        const msgs = yield* MessageV2.filterCompactedEffect(session.id)
+        const tool = msgs
+          .flatMap((msg) => msg.parts)
+          .find(
+            (part): part is CompletedToolPart =>
+              part.type === "tool" && part.tool === "glob" && part.state.status === "completed",
+          )
+        if (!tool) return
+
+        expect(tool.state.output).toContain(file)
+        expect(tool.state.output).not.toContain("No context found for instance")
+        expect(result.parts.some((part) => part.type === "text" && part.text === "done")).toBe(true)
+      }),
     { git: true, config: providerCfg },
   ),
 )
@@ -735,19 +784,12 @@ it.live(
           const registry = yield* ToolRegistry.Service
           const { task } = yield* registry.named()
           const original = task.execute
-          task.execute = async (_args, ctx) => {
-            ready.resolve()
-            ctx.abort.addEventListener("abort", () => aborted.resolve(), { once: true })
-            await new Promise<void>(() => {})
-            return {
-              title: "",
-              metadata: {
-                sessionId: SessionID.make("task"),
-                model: ref,
-              },
-              output: "",
-            }
-          }
+          task.execute = (_args, ctx) =>
+            Effect.callback<never>((_resume) => {
+              ready.resolve()
+              ctx.abort.addEventListener("abort", () => aborted.resolve(), { once: true })
+              return Effect.sync(() => aborted.resolve())
+            })
           yield* Effect.addFinalizer(() => Effect.sync(() => void (task.execute = original)))
 
           const { prompt, chat } = yield* boot()
@@ -813,7 +855,7 @@ it.live(
 
 it.live("concurrent loop callers get same result", () =>
   provideTmpdirInstance(
-    (dir) =>
+    (_dir) =>
       Effect.gen(function* () {
         const { prompt, run, chat } = yield* boot()
         yield* seed(chat.id, { finish: "stop" })
@@ -954,7 +996,7 @@ it.live(
 
 it.live("assertNotBusy succeeds when idle", () =>
   provideTmpdirInstance(
-    (dir) =>
+    (_dir) =>
       Effect.gen(function* () {
         const run = yield* SessionRunState.Service
         const sessions = yield* Session.Service
@@ -999,7 +1041,7 @@ it.live(
 
 unix("shell captures stdout and stderr in completed tool output", () =>
   provideTmpdirInstance(
-    (dir) =>
+    (_dir) =>
       Effect.gen(function* () {
         const { prompt, run, chat } = yield* boot()
         const result = yield* prompt.shell({
@@ -1074,7 +1116,7 @@ unix("shell lists files from the project directory", () =>
 
 unix("shell captures stderr from a failing command", () =>
   provideTmpdirInstance(
-    (dir) =>
+    (_dir) =>
       Effect.gen(function* () {
         const { prompt, run, chat } = yield* boot()
         const result = yield* prompt.shell({
@@ -1100,7 +1142,7 @@ unix(
   () =>
     withSh(() =>
       provideTmpdirInstance(
-        (dir) =>
+        (_dir) =>
           Effect.gen(function* () {
             const { prompt, chat } = yield* boot()
 
@@ -1212,7 +1254,7 @@ unix(
   () =>
     withSh(() =>
       provideTmpdirInstance(
-        (dir) =>
+        (_dir) =>
           Effect.gen(function* () {
             const { prompt, run, chat } = yield* boot()
 
@@ -1249,7 +1291,7 @@ unix(
   () =>
     withSh(() =>
       provideTmpdirInstance(
-        (dir) =>
+        (_dir) =>
           Effect.gen(function* () {
             const { prompt, chat } = yield* boot()
 
@@ -1318,8 +1360,8 @@ unix(
 
           expect(tool.state.metadata.truncated).toBe(true)
           expect(typeof tool.state.metadata.outputPath).toBe("string")
-          expect(tool.state.output).toContain("The tool call succeeded but the output was truncated.")
-          expect(tool.state.output).toContain("Full output saved to:")
+          expect(tool.state.output).toMatch(/\.\.\.output truncated\.\.\./)
+          expect(tool.state.output).toMatch(/Full output saved to:\s+\S+/)
           expect(tool.state.output).not.toContain("Tool execution aborted")
         }),
       { git: true, config: providerCfg },
@@ -1331,7 +1373,7 @@ unix(
   "cancel interrupts loop queued behind shell",
   () =>
     provideTmpdirInstance(
-      (dir) =>
+      (_dir) =>
         Effect.gen(function* () {
           const { prompt, chat } = yield* boot()
 
@@ -1360,7 +1402,7 @@ unix(
   () =>
     withSh(() =>
       provideTmpdirInstance(
-        (dir) =>
+        (_dir) =>
           Effect.gen(function* () {
             const { prompt, chat } = yield* boot()
 
@@ -1393,11 +1435,10 @@ function hangUntilAborted(tool: { execute: (...args: any[]) => any }) {
   const ready = defer<void>()
   const aborted = defer<void>()
   const original = tool.execute
-  tool.execute = async (_args: any, ctx: any) => {
+  tool.execute = (_args: any, ctx: any) => {
     ready.resolve()
     ctx.abort.addEventListener("abort", () => aborted.resolve(), { once: true })
-    await new Promise<void>(() => {})
-    return { title: "", metadata: {}, output: "" }
+    return Effect.callback<never>(() => {})
   }
   const restore = Effect.addFinalizer(() => Effect.sync(() => void (tool.execute = original)))
   return { ready, aborted, restore }

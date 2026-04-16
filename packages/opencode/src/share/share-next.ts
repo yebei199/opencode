@@ -1,16 +1,16 @@
 import type * as SDK from "@opencode-ai/sdk/v2"
-import { Effect, Exit, Layer, Option, Schema, Scope, ServiceMap, Stream } from "effect"
+import { Effect, Exit, Layer, Option, Schema, Scope, Context, Stream } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { Account } from "@/account"
 import { Bus } from "@/bus"
-import { InstanceState } from "@/effect/instance-state"
-import { Provider } from "@/provider/provider"
+import { InstanceState } from "@/effect"
+import { Provider } from "@/provider"
 import { ModelID, ProviderID } from "@/provider/schema"
 import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import type { SessionID } from "@/session/schema"
 import { Database, eq } from "@/storage/db"
-import { Config } from "@/config/config"
+import { Config } from "@/config"
 import { Log } from "@/util/log"
 import { SessionShareTable } from "./share.sql"
 
@@ -73,7 +73,7 @@ export namespace ShareNext {
     readonly remove: (sessionID: SessionID) => Effect.Effect<void, unknown>
   }
 
-  export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/ShareNext") {}
+  export class Service extends Context.Service<Service, Interface>()("@opencode/ShareNext") {}
 
   const db = <T>(fn: (d: Parameters<typeof Database.use>[0] extends (trx: infer D) => any ? D : never) => T) =>
     Effect.sync(() => Database.use(fn))
@@ -142,7 +142,7 @@ export namespace ShareNext {
         })
       }
 
-      const state: InstanceState<State> = yield* InstanceState.make<State>(
+      const state: InstanceState.InstanceState<State> = yield* InstanceState.make<State>(
         Effect.fn("ShareNext.state")(function* (_ctx) {
           const cache: State = { queue: new Map(), scope: yield* Scope.make() }
 

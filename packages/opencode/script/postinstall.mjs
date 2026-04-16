@@ -64,7 +64,7 @@ function findBinary() {
 
     return { binaryPath, binaryName }
   } catch (error) {
-    throw new Error(`Could not find package ${packageName}: ${error.message}`)
+    throw new Error(`Could not find package ${packageName}: ${error.message}`, { cause: error })
   }
 }
 
@@ -83,18 +83,6 @@ function prepareBinDirectory(binaryName) {
   }
 
   return { binDir, targetPath }
-}
-
-function symlinkBinary(sourcePath, binaryName) {
-  const { targetPath } = prepareBinDirectory(binaryName)
-
-  fs.symlinkSync(sourcePath, targetPath)
-  console.log(`opencode binary symlinked: ${targetPath} -> ${sourcePath}`)
-
-  // Verify the file exists after operation
-  if (!fs.existsSync(targetPath)) {
-    throw new Error(`Failed to symlink binary to ${targetPath}`)
-  }
 }
 
 async function main() {

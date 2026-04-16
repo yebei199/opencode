@@ -1,4 +1,4 @@
-import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, decodePasteBytes, t, dim, fg } from "@opentui/core"
+import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, decodePasteBytes } from "@opentui/core"
 import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
 import "opentui-spinner/solid"
 import path from "path"
@@ -37,6 +37,7 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogSkill } from "../dialog-skill"
+import { useArgs } from "@tui/context/args"
 
 export type PromptProps = {
   sessionID?: string
@@ -81,6 +82,7 @@ export function Prompt(props: PromptProps) {
 
   const keybind = useKeybind()
   const local = useLocal()
+  const args = useArgs()
   const sdk = useSDK()
   const route = useRoute()
   const sync = useSync()
@@ -202,7 +204,8 @@ export function Prompt(props: PromptProps) {
       // Only set agent if it's a primary agent (not a subagent)
       const isPrimaryAgent = local.agent.list().some((x) => x.name === msg.agent)
       if (msg.agent && isPrimaryAgent) {
-        local.agent.set(msg.agent)
+        // Keep command line --agent if specified.
+        if (!args.agent) local.agent.set(msg.agent)
         if (msg.model) {
           local.model.set(msg.model)
           local.model.variant.set(msg.model.variant)
@@ -589,6 +592,13 @@ export function Prompt(props: PromptProps) {
   ])
 
   async function submit() {
+    // IME: double-defer may fire before onContentChange flushes the last
+    // composed character (e.g. Korean hangul) to the store, so read
+    // plainText directly and sync before any downstream reads.
+    if (input && !input.isDestroyed && input.plainText !== store.prompt.input) {
+      setStore("prompt", "input", input.plainText)
+      syncExtmarksWithPromptParts()
+    }
     if (props.disabled) return
     if (autocomplete?.visible) return
     if (!store.prompt.input) return
@@ -994,7 +1004,11 @@ export function Prompt(props: PromptProps) {
                     input.cursorOffset = input.plainText.length
                 }
               }}
-              onSubmit={submit}
+              onSubmit={() => {
+                // IME: double-defer so the last composed character (e.g. Korean
+                // hangul) is flushed to plainText before we read it for submission.
+                setTimeout(() => setTimeout(() => submit(), 0), 0)
+              }}
               onPaste={async (event: PasteEvent) => {
                 if (props.disabled) {
                   event.preventDefault()

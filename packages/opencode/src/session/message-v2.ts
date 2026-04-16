@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import { SessionID, MessageID, PartID } from "./schema"
 import z from "zod"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@opencode-ai/shared/util/error"
 import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
@@ -12,9 +12,10 @@ import { ProviderError } from "@/provider/error"
 import { iife } from "@/util/iife"
 import { errorMessage } from "@/util/error"
 import type { SystemError } from "bun"
-import type { Provider } from "@/provider/provider"
+import type { Provider } from "@/provider"
 import { ModelID, ProviderID } from "@/provider/schema"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 
 /** Error shape thrown by Bun's fetch() when gzip/br decompression fails mid-stream */
 interface FetchDecompressionError extends Error {
@@ -24,6 +25,8 @@ interface FetchDecompressionError extends Error {
 }
 
 export namespace MessageV2 {
+  export const SYNTHETIC_ATTACHMENT_PROMPT = "Attached image(s) from tool result:"
+
   export function isMedia(mime: string) {
     return mime.startsWith("image/") || mime === "application/pdf"
   }
@@ -807,7 +810,7 @@ export namespace MessageV2 {
               parts: [
                 {
                   type: "text" as const,
-                  text: "Attached image(s) from tool result:",
+                  text: SYNTHETIC_ATTACHMENT_PROMPT,
                 },
                 ...media.map((attachment) => ({
                   type: "file" as const,
@@ -839,7 +842,7 @@ export namespace MessageV2 {
     model: Provider.Model,
     options?: { stripMedia?: boolean },
   ): Promise<ModelMessage[]> {
-    return Effect.runPromise(toModelMessagesEffect(input, model, options))
+    return Effect.runPromise(toModelMessagesEffect(input, model, options).pipe(Effect.provide(EffectLogger.layer)))
   }
 
   export function page(input: { sessionID: SessionID; limit: number; before?: string }) {
