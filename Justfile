@@ -8,6 +8,39 @@ DEPLOY_SOCKS5_HOST := env_var_or_default("DEPLOY_SOCKS5_HOST", "127.0.0.1")
 DEPLOY_SOCKS5_PORT := env_var_or_default("DEPLOY_SOCKS5_PORT", "7897")
 
 
+# 本地计算 x86_64-linux 的 node_modules NAR hash，用于更新 nix/hashes.json
+compute-hash:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    echo "==> bun install (--ignore-scripts --frozen-lockfile)..."
+    HTTPS_PROXY="http://{{DEPLOY_SOCKS5_HOST}}:{{DEPLOY_SOCKS5_PORT}}" \
+    HTTP_PROXY="http://{{DEPLOY_SOCKS5_HOST}}:{{DEPLOY_SOCKS5_PORT}}" \
+    bun install \
+      --cpu="x64" \
+      --os="linux" \
+      --filter '!./' \
+      --filter './packages/opencode' \
+      --filter './packages/desktop' \
+      --filter './packages/app' \
+      --filter './packages/shared' \
+      --frozen-lockfile \
+      --ignore-scripts \
+      --no-progress
+    echo "==> canonicalize-node-modules..."
+    bun --bun nix/scripts/canonicalize-node-modules.ts
+    echo "==> normalize-bun-binaries..."
+    bun --bun nix/scripts/normalize-bun-binaries.ts
+    echo "==> 收集 node_modules 到临时目录..."
+    OUTDIR=$(mktemp -d)
+    find . -type d -name node_modules -exec cp -R --parents {} "$OUTDIR" \;
+    echo "==> 计算 NAR hash..."
+    HASH=$(nix hash path --sri "$OUTDIR")
+    echo ""
+    echo "x86_64-linux hash: $HASH"
+    echo ""
+    echo "请将上面的 hash 填入 nix/hashes.json 的 x86_64-linux 字段"
+
 [group('others')]
 rm_sisyphus:
     mkdir -p .sisyphus docs/plans
