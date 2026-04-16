@@ -2,6 +2,12 @@
 {
   description = "OpenCode development flake";
 
+  # 个人分支：硬编码本机代理，加速 Nix 守护进程自身的网络请求（fetchurl 等）
+  nixConfig = {
+    http-proxy = "http://127.0.0.1:7897";
+    https-proxy = "http://127.0.0.1:7897";
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
