@@ -16,6 +16,7 @@
   },
   "imports": {},
   "devDependencies": {
+    "@tsconfig/bun": "catalog:",
     "@types/semver": "catalog:",
     "@types/bun": "catalog:"
   },
