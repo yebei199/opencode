@@ -18,13 +18,13 @@ import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { SessionSummary } from "../../src/session/summary"
 import { Snapshot } from "../../src/snapshot"
-import { Log } from "../../src/util/log"
+import { Log } from "../../src/util"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
 import { provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { raw, reply, TestLLMServer } from "../lib/llm-server"
 
-Log.init({ print: false })
+void Log.init({ print: false })
 
 const summary = Layer.succeed(
   SessionSummary.Service,

@@ -22,7 +22,7 @@ import { SessionPrompt } from "../../src/session/prompt"
 import { SessionRevert } from "../../src/session/revert"
 import { SessionSummary } from "../../src/session/summary"
 import { MessageV2 } from "../../src/session/message-v2"
-import { Log } from "../../src/util/log"
+import { Log } from "../../src/util"
 import { provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { TestLLMServer } from "../lib/llm-server"
@@ -50,14 +50,14 @@ import { SessionProcessor } from "../../src/session/processor"
 import { SessionRunState } from "../../src/session/run-state"
 import { SessionStatus } from "../../src/session/status"
 import { Snapshot } from "../../src/snapshot"
-import { ToolRegistry } from "../../src/tool/registry"
-import { Truncate } from "../../src/tool/truncate"
+import { ToolRegistry } from "../../src/tool"
+import { Truncate } from "../../src/tool"
 import { AppFileSystem } from "@opencode-ai/shared/filesystem"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
 import { Ripgrep } from "../../src/file/ripgrep"
 import { Format } from "../../src/format"
 
-Log.init({ print: false })
+void Log.init({ print: false })
 
 const mcp = Layer.succeed(
   MCP.Service,

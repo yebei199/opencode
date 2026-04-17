@@ -34,9 +34,9 @@ import { Skill } from "../../src/skill"
 import { SystemPrompt } from "../../src/session/system"
 import { Shell } from "../../src/shell/shell"
 import { Snapshot } from "../../src/snapshot"
-import { ToolRegistry } from "../../src/tool/registry"
-import { Truncate } from "../../src/tool/truncate"
-import { Log } from "../../src/util/log"
+import { ToolRegistry } from "../../src/tool"
+import { Truncate } from "../../src/tool"
+import { Log } from "../../src/util"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
 import { Ripgrep } from "../../src/file/ripgrep"
 import { Format } from "../../src/format"
@@ -44,7 +44,7 @@ import { provideTmpdirInstance, provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 
-Log.init({ print: false })
+void Log.init({ print: false })
 
 const summary = Layer.succeed(
   SessionSummary.Service,

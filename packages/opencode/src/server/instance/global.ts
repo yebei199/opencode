@@ -10,7 +10,8 @@ import { AppRuntime } from "@/effect/app-runtime"
 import { AsyncQueue } from "@/util/queue"
 import { Instance } from "../../project/instance"
 import { Installation } from "@/installation"
-import { Log } from "../../util/log"
+import { InstallationVersion } from "@/installation/version"
+import { Log } from "../../util"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config"
 import { errors } from "../error"
@@ -89,7 +90,7 @@ export const GlobalRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json({ healthy: true, version: Installation.VERSION })
+        return c.json({ healthy: true, version: InstallationVersion })
       },
     )
     .get(

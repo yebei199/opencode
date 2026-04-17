@@ -8,9 +8,9 @@ import { Config } from "../../src/config"
 import { Agent } from "../../src/agent/agent"
 import { LLM } from "../../src/session/llm"
 import { SessionCompaction } from "../../src/session/compaction"
-import { Token } from "../../src/util/token"
+import { Token } from "../../src/util"
 import { Instance } from "../../src/project/instance"
-import { Log } from "../../src/util/log"
+import { Log } from "../../src/util"
 import { Permission } from "../../src/permission"
 import { Plugin } from "../../src/plugin"
 import { provideTmpdirInstance, tmpdir } from "../fixture/fixture"
@@ -27,7 +27,7 @@ import { ProviderTest } from "../fake/provider"
 import { testEffect } from "../lib/effect"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
 
-Log.init({ print: false })
+void Log.init({ print: false })
 
 function run<A, E>(fx: Effect.Effect<A, E, SessionNs.Service>) {
   return Effect.runPromise(fx.pipe(Effect.provide(SessionNs.defaultLayer)))

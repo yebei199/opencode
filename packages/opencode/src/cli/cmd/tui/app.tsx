@@ -1,7 +1,7 @@
 import { render, TimeToFirstDraw, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { Clipboard } from "@tui/util/clipboard"
-import { Selection } from "@tui/util/selection"
-import { Terminal } from "@tui/util/terminal"
+import * as Clipboard from "@tui/util/clipboard"
+import * as Selection from "@tui/util/selection"
+import * as Terminal from "@tui/util/terminal"
 import { createCliRenderer, MouseButton, type CliRendererConfig } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
 import {
@@ -57,7 +57,7 @@ import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { TuiConfigProvider, useTuiConfig } from "./context/tui-config"
-import { TuiConfig } from "@/config/tui"
+import { TuiConfig } from "@/cli/cmd/tui/config/tui"
 import { createTuiApi, TuiPluginRuntime, type RouteMap } from "./plugin"
 import { FormatError, FormatUnknownError } from "@/cli/error"
 
@@ -235,7 +235,10 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     renderer,
   })
   const [ready, setReady] = createSignal(false)
-  TuiPluginRuntime.init(api)
+  TuiPluginRuntime.init({
+    api,
+    config: tuiConfig,
+  })
     .catch((error) => {
       console.error("Failed to load TUI plugins", error)
     })
@@ -350,7 +353,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     if (match) {
       continued = true
       if (args.fork) {
-        sdk.client.session.fork({ sessionID: match }).then((result) => {
+        void sdk.client.session.fork({ sessionID: match }).then((result) => {
           if (result.data?.id) {
             route.navigate({ type: "session", sessionID: result.data.id })
           } else {
@@ -370,7 +373,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
   createEffect(() => {
     if (forked || sync.status !== "complete" || !args.sessionID || !args.fork) return
     forked = true
-    sdk.client.session.fork({ sessionID: args.sessionID }).then((result) => {
+    void sdk.client.session.fork({ sessionID: args.sessionID }).then((result) => {
       if (result.data?.id) {
         route.navigate({ type: "session", sessionID: result.data.id })
       } else {
@@ -818,7 +821,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       `Successfully updated to OpenCode v${result.data.version}. Please restart the application.`,
     )
 
-    exit()
+    void exit()
   })
 
   const plugin = createMemo(() => {

@@ -89,19 +89,19 @@ class MockSSE {
   }
 }
 
-mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+void mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
   StdioClientTransport: MockStdioTransport,
 }))
 
-mock.module("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+void mock.module("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
   StreamableHTTPClientTransport: MockStreamableHTTP,
 }))
 
-mock.module("@modelcontextprotocol/sdk/client/sse.js", () => ({
+void mock.module("@modelcontextprotocol/sdk/client/sse.js", () => ({
   SSEClientTransport: MockSSE,
 }))
 
-mock.module("@modelcontextprotocol/sdk/client/auth.js", () => ({
+void mock.module("@modelcontextprotocol/sdk/client/auth.js", () => ({
   UnauthorizedError: class extends Error {
     constructor() {
       super("Unauthorized")
@@ -110,7 +110,7 @@ mock.module("@modelcontextprotocol/sdk/client/auth.js", () => ({
 }))
 
 // Mock Client that delegates to per-name MockClientState
-mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
+void mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
   Client: class MockClient {
     _state!: MockClientState
     transport: any
@@ -652,9 +652,8 @@ test("McpOAuthCallback.cancelPending is keyed by mcpName but pendingAuths uses o
 
   // The callback should still be pending because cancelPending looked up
   // "my-mcp-server" in a map keyed by "abc123hexstate"
-  let resolved = false
   let rejected = false
-  callbackPromise.then(() => (resolved = true)).catch(() => (rejected = true))
+  callbackPromise.then(() => {}).catch(() => (rejected = true))
 
   // Give it a tick
   await new Promise((r) => setTimeout(r, 50))
