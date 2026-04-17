@@ -18,23 +18,23 @@
       overlay =
         final: prev:
         let
-          ver = "1.3.10";
+          ver = "1.3.11";
           srcs = {
             "aarch64-darwin" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-darwin-aarch64.zip";
-              hash = "sha256-ggNOh8nZtDmOphmu4u7V0qaMgVfppq4tEFLYTVM8zY0=";
+              hash = "sha256-b1o0Z+2crsR5W/eM1HZQfZ+HDH1XuGyUX8szgSZ3L/w=";
             };
             "aarch64-linux" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-linux-aarch64.zip";
-              hash = "sha256-+l7LJcr6jo9ch6D4M3GdRt0K8KhseDfYBlMSEtVWNtM=";
+              hash = "sha256-0TlE2hKlPsx0v2pyC9HQTEVVwDjf5CI2U1anvkdpH98=";
             };
             "x86_64-darwin" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-darwin-x64-baseline.zip";
-              hash = "sha256-+WhsTk52DbTN53oPH60F5VJki5ycv6T3/Jp+wmufMmc=";
+              hash = "sha256-+2c5sIv1RVDtqnyCTNWy3KRbagav70CEQwh6YxBfb40=";
             };
             "x86_64-linux" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-linux-x64.zip";
-              hash = "sha256-9XvAGH45Yj3nFro6OJ/aVIay175xMamAulTce3M9Lgg=";
+              hash = "sha256-hhG6k1r4hvBabzh0ChUWAybBXl1dB63vlmEwtEk2B+0=";
             };
           };
           bun = prev.bun.overrideAttrs (_: {
