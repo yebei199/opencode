@@ -1,4 +1,4 @@
 # nix
 
-负责仓库的 Nix 打包与开发环境定义。
-保持职责聚焦：固定构建输入、封装派生与记录少量平台相关约束，不承载应用运行时逻辑。
+Owns the repo Nix packaging and development environment definitions.
+Keep scope narrow: pin build inputs, wrap derivations, and record small platform constraints without application runtime logic.

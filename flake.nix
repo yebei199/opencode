@@ -1,4 +1,4 @@
-# 该文件统一组装开发环境与 Nix 派生，并在仓库内覆盖 Bun 版本以保持构建链路一致。
+# Compose the repo flake outputs and pin Bun consistently for Nix builds.
 {
   description = "OpenCode development flake";
 
@@ -18,23 +18,23 @@
       overlay =
         final: prev:
         let
-          ver = "1.3.11";
+          ver = "1.3.10";
           srcs = {
             "aarch64-darwin" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-darwin-aarch64.zip";
-              hash = "sha256-b1o0Z+2crsR5W/eM1HZQfZ+HDH1XuGyUX8szgSZ3L/w=";
+              hash = "sha256-ggNOh8nZtDmOphmu4u7V0qaMgVfppq4tEFLYTVM8zY0=";
             };
             "aarch64-linux" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-linux-aarch64.zip";
-              hash = "sha256-0TlE2hKlPsx0v2pyC9HQTEVVwDjf5CI2U1anvkdpH98=";
+              hash = "sha256-+l7LJcr6jo9ch6D4M3GdRt0K8KhseDfYBlMSEtVWNtM=";
             };
             "x86_64-darwin" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-darwin-x64-baseline.zip";
-              hash = "sha256-+2c5sIv1RVDtqnyCTNWy3KRbagav70CEQwh6YxBfb40=";
+              hash = "sha256-+WhsTk52DbTN53oPH60F5VJki5ycv6T3/Jp+wmufMmc=";
             };
             "x86_64-linux" = final.fetchurl {
               url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-linux-x64.zip";
-              hash = "sha256-hhG6k1r4hvBabzh0ChUWAybBXl1dB63vlmEwtEk2B+0=";
+              hash = "sha256-9XvAGH45Yj3nFro6OJ/aVIay175xMamAulTce3M9Lgg=";
             };
           };
           bun = prev.bun.overrideAttrs (_: {
@@ -52,6 +52,9 @@
           node_modules = final.callPackage ./nix/node_modules.nix {
             inherit rev;
           };
+          node_modules_diagnose = final.callPackage ./nix/node_modules-diagnose.nix {
+            inherit rev;
+          };
           opencode = final.callPackage ./nix/opencode.nix {
             inherit node_modules;
           };
@@ -61,6 +64,7 @@
         in
         {
           inherit bun;
+          inherit node_modules_diagnose;
           inherit opencode;
           opencode-desktop = desktop;
         };
@@ -98,6 +102,7 @@
         default = pkgs.opencode;
         inherit (pkgs) opencode;
         desktop = pkgs.opencode-desktop;
+        inherit (pkgs) node_modules_diagnose;
         # Updater derivation with fakeHash - build fails and reveals correct hash
         node_modules_updater = pkgs.opencode.node_modules.override {
           hash = pkgs.lib.fakeHash;
