@@ -1,4 +1,4 @@
-# Compose the repo flake outputs and pin Bun consistently for Nix builds.
+# Compose the repo flake outputs for Nix builds.
 {
   description = "OpenCode development flake";
 
@@ -18,37 +18,6 @@
       overlay =
         final: prev:
         let
-          ver = "1.3.11";
-          srcs = {
-            "aarch64-darwin" = final.fetchurl {
-              url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-darwin-aarch64.zip";
-              hash = "sha256-b1o0Z+2crsR5W/eM1HZQfZ+HDH1XuGyUX8szgSZ3L/w=";
-            };
-            "aarch64-linux" = final.fetchurl {
-              url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-linux-aarch64.zip";
-              hash = "sha256-0TlE2hKlPsx0v2pyC9HQTEVVwDjf5CI2U1anvkdpH98=";
-            };
-            "x86_64-darwin" = final.fetchurl {
-              url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-darwin-x64-baseline.zip";
-              hash = "sha256-+2c5sIv1RVDtqnyCTNWy3KRbagav70CEQwh6YxBfb40=";
-            };
-            "x86_64-linux" = final.fetchurl {
-              url = "https://github.com/oven-sh/bun/releases/download/bun-v${ver}/bun-linux-x64.zip";
-              hash = "sha256-hhG6k1r4hvBabzh0ChUWAybBXl1dB63vlmEwtEk2B+0=";
-            };
-          };
-          bun = prev.bun.overrideAttrs (_: {
-            version = ver;
-            src =
-              srcs.${final.stdenvNoCC.hostPlatform.system}
-                or (throw "Unsupported system: ${final.stdenvNoCC.hostPlatform.system}");
-            passthru = prev.bun.passthru // {
-              sources = srcs;
-            };
-            meta = prev.bun.meta // {
-              changelog = "https://bun.sh/blog/bun-v${ver}";
-            };
-          });
           node_modules = final.callPackage ./nix/node_modules.nix {
             inherit rev;
           };
@@ -63,9 +32,7 @@
           };
         in
         {
-          inherit bun;
-          inherit node_modules_diagnose;
-          inherit opencode;
+          inherit node_modules_diagnose opencode;
           opencode-desktop = desktop;
         };
       forEachSystem =
