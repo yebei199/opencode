@@ -8,7 +8,7 @@ import { useProject } from "@tui/context/project"
 import { useKeybind } from "../context/keybind"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@opencode-ai/core/flag/flag"
 import { DialogSessionRename } from "./dialog-session-rename"
 import { Keybind } from "@/util"
 import { createDebouncedSignal } from "../util/signal"
@@ -139,15 +139,10 @@ export function DialogSessionList() {
                 {desc}{" "}
                 <span
                   style={{
-                    fg:
-                      workspaceStatus === "error"
-                        ? theme.error
-                        : workspaceStatus === "disconnected"
-                          ? theme.textMuted
-                          : theme.success,
+                    fg: workspaceStatus === "connected" ? theme.success : theme.error,
                   }}
                 >
-                  ■
+                  ●
                 </span>
               </>
             )

@@ -6,7 +6,7 @@ import { registerAdaptor } from "../../src/control-plane/adaptors"
 import type { WorkspaceAdaptor } from "../../src/control-plane/types"
 import { Workspace } from "../../src/control-plane/workspace"
 import { AppRuntime } from "../../src/effect/app-runtime"
-import { Flag } from "../../src/flag/flag"
+import { Flag } from "@opencode-ai/core/flag/flag"
 import { ModelID, ProviderID } from "../../src/provider/schema"
 import { Instance } from "../../src/project/instance"
 import { Session as SessionNs } from "../../src/session"
@@ -141,8 +141,11 @@ describe("Workspace.sessionRestore", () => {
       Object.assign(
         async (input: URL | RequestInfo, init?: BunFetchRequestInit | RequestInit) => {
           const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url)
-          if (url.pathname !== "/base/sync/replay") {
+          if (url.pathname === "/base/global/event") {
             return eventStreamResponse()
+          }
+          if (url.pathname === "/base/sync/history") {
+            return Response.json([])
           }
           const body = JSON.parse(String(init?.body))
           posts.push({
